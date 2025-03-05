@@ -8,7 +8,7 @@ source = "member"
 dependencies = [
     "interfaces",
     "math",
-    "standards git+https://github.com/FuelLabs/sway-standards?tag=v0.6.3#6ffb53d649b9799acda6d03c3ed82706daaafe7d",
+    "standards git+https://github.com/FuelLabs/sway-standards?tag=v0.6.0#6ffb53d649b9799acda6d03c3ed82706daaafe7d",
     "std",
     "sway_libs",
     "utils",
@@ -39,7 +39,7 @@ dependencies = ["std"]
 
 [[package]]
 name = "standards"
-source = "git+https://github.com/FuelLabs/sway-standards?tag=v0.6.3#6ffb53d649b9799acda6d03c3ed82706daaafe7d"
+source = "git+https://github.com/FuelLabs/sway-standards?tag=v0.6.0#6ffb53d649b9799acda6d03c3ed82706daaafe7d"
 dependencies = ["std"]
 
 [[package]]

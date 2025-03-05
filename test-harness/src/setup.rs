@@ -1,5 +1,6 @@
 use fuels::prelude::{AssetId, Contract, LoadConfiguration, Provider, TxPolicies, WalletUnlocked};
 use fuels::types::ContractId;
+use crate::paths::PROXY_CONTRACT_BINARY_PATH;
 
 pub struct OwnerProxyContract {
     pub id: ContractId,

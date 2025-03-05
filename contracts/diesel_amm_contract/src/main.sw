@@ -63,30 +63,47 @@ configurable {
     LP_FEE_STABLE: u64 = 5,
 }
 
+// storage {
+//     /// Pools storage
+//     pools: StorageMap<PoolId, PoolInfo> = StorageMap {},
+//     /// Total number of pools
+//     total_pools: u64 = 0,
+//     /// Total reserves of specific assets across all pools
+//     total_reserves: StorageMap<AssetId, u64> = StorageMap {},
+//     /// The total supply of coins for a specific asset minted by this contract.
+//     lp_total_supply: StorageMap<AssetId, u64> = StorageMap {},
+//     /// The name of a specific asset minted by this contract.
+//     lp_name: StorageMap<AssetId, StorageString> = StorageMap {},
+//     /// Protocol fees in basis points for volatile and stable pools, respectively.
+//     protocol_fees: (u64, u64) = (0, 0),
+//     /// Hook to call on all reserve updates.
+//     hook: Option<ContractId> = None,
+// }
 storage {
-    /// Pools storage
-    pools: StorageMap<PoolId, PoolInfo> = StorageMap {},
-    /// Total number of pools
-    total_pools: u64 = 0,
-    /// Total reserves of specific assets across all pools
-    total_reserves: StorageMap<AssetId, u64> = StorageMap {},
-    /// The total supply of coins for a specific asset minted by this contract.
-    lp_total_supply: StorageMap<AssetId, u64> = StorageMap {},
-    /// The name of a specific asset minted by this contract.
-    lp_name: StorageMap<AssetId, StorageString> = StorageMap {},
-    /// Protocol fees in basis points for volatile and stable pools, respectively.
-    protocol_fees: (u64, u64) = (0, 0),
-    /// Hook to call on all reserve updates.
-    hook: Option<ContractId> = None,
+		V1 {
+	    /// Pools storage
+	    pools: StorageMap<PoolId, PoolInfo> = StorageMap {},
+	    /// Total number of pools
+	    total_pools: u64 = 0,
+	    /// Total reserves of specific assets across all pools
+	    total_reserves: StorageMap<AssetId, u64> = StorageMap {},
+	    /// The total supply of coins for a specific asset minted by this contract.
+	    lp_total_supply: StorageMap<AssetId, u64> = StorageMap {},
+	    /// The name of a specific asset minted by this contract.
+	    lp_name: StorageMap<AssetId, StorageString> = StorageMap {},
+	    /// Protocol fees in basis points for volatile and stable pools, respectively.
+	    protocol_fees: (u64, u64) = (0, 0),
+	    /// Hook to call on all reserve updates.
+	    hook: Option<ContractId> = None,
+	    }
 }
-
 const MINIMUM_LIQUIDITY: u64 = 1000;
 const LP_TOKEN_DECIMALS: u8 = 9;
 const LP_TOKEN_SYMBOL = __to_str_array("DSL-LP");
 
 #[storage(write)]
 fn initialize_lp_asset(sender: Identity, lp_asset: AssetId, name: String) {
-    storage.lp_name.get(lp_asset).write_slice(name);
+    storage::V1.lp_name.get(lp_asset).write_slice(name);
     log(SetNameEvent {
         asset: lp_asset,
         name: Some(name),
@@ -108,7 +125,7 @@ fn initialize_lp_asset(sender: Identity, lp_asset: AssetId, name: String) {
 
 #[storage(write)]
 fn update_total_supply(sender: Identity, lp_asset: AssetId, new_supply: u64) {
-    storage.lp_total_supply.insert(lp_asset, new_supply);
+    storage::V1.lp_total_supply.insert(lp_asset, new_supply);
 
     log(TotalSupplyEvent {
         asset: lp_asset,
@@ -120,7 +137,7 @@ fn update_total_supply(sender: Identity, lp_asset: AssetId, new_supply: u64) {
 #[storage(read)]
 fn get_pool_option(pool_id: PoolId) -> Option<PoolInfo> {
     validate_pool_id(pool_id);
-    storage.pools.get(pool_id).try_read()
+    storage::V1.pools.get(pool_id).try_read()
 }
 
 #[storage(read)]
@@ -132,7 +149,7 @@ fn get_pool(pool_id: PoolId) -> PoolInfo {
 
 #[storage(read)]
 fn get_total_reserve(asset_id: AssetId) -> u64 {
-    storage.total_reserves.get(asset_id).try_read().unwrap_or(0)
+    storage::V1.total_reserves.get(asset_id).try_read().unwrap_or(0)
 }
 
 #[storage(read, write)]
@@ -144,12 +161,12 @@ fn update_total_reserve(asset_id: AssetId, amount_in: u64, amount_out: u64) {
         balance >= new_reserve,
         InputError::PoolInvariantViolation((balance, new_reserve)),
     );
-    storage.total_reserves.insert(asset_id, new_reserve);
+    storage::V1.total_reserves.insert(asset_id, new_reserve);
 }
 
 #[storage(read)]
 fn get_lp_total_supply(asset_id: AssetId) -> Option<u64> {
-    storage.lp_total_supply.get(asset_id).try_read()
+    storage::V1.lp_total_supply.get(asset_id).try_read()
 }
 
 #[storage(read)]
@@ -176,8 +193,8 @@ fn initialize_pool(
     );
 
     let pool_info = PoolInfo::new(pool_id, decimals_0, decimals_1);
-    storage.pools.insert(pool_id, pool_info);
-    storage.total_pools.write(storage.total_pools.read() + 1);
+    storage::V1.pools.insert(pool_id, pool_info);
+    storage::V1.total_pools.write(storage::V1.total_pools.read() + 1);
 
     let sender = msg_sender().unwrap();
     initialize_lp_asset(sender, pool_lp_asset, lp_name);
@@ -195,7 +212,7 @@ fn mint_lp_asset(pool_id: PoolId, to: Identity, amount: u64) -> Asset {
     );
     
     // Call LP rewards hook if configured
-    if let Some(hook_contract) = storage.hook.read() {
+    if let Some(hook_contract) = storage::V1.hook.read() {
         abi(LPRewardsHook, hook_contract.into())
             .on_mint(to, pool_id, amount);
     }
@@ -223,7 +240,7 @@ fn burn_lp_asset(pool_id: PoolId, burned_liquidity: Asset) -> u64 {
     let sender = msg_sender().unwrap();
     
     // Call LP rewards hook if configured
-    if let Some(hook_contract) = storage.hook.read() {
+    if let Some(hook_contract) = storage::V1.hook.read() {
         abi(LPRewardsHook, hook_contract.into())
             .on_burn(sender, pool_id, burned_liquidity.amount);
     }
@@ -233,7 +250,10 @@ fn burn_lp_asset(pool_id: PoolId, burned_liquidity: Asset) -> u64 {
         pool_lp_asset,
         lp_total_supply - burned_liquidity.amount,
     );
-    burn(pool_lp_asset_sub_id, burned_liquidity.amount);
+     if let Some(hook_contract) = storage::V1.hook.read() {
+        abi(LPRewardsHook, hook_contract.into())
+            .on_burn(sender, pool_id, burned_liquidity.amount);
+    }
     lp_total_supply
 }
 
@@ -283,7 +303,7 @@ fn update_reserves(
     let reserve_0 = pool.reserve_0 + amount_0_in - amount_0_out;
     let reserve_1 = pool.reserve_1 + amount_1_in - amount_1_out;
     let updated_pool = pool.copy_with_reserves(reserve_0, reserve_1);
-    storage.pools.insert(pool.id, updated_pool);
+    storage::V1.pools.insert(pool.id, updated_pool);
     update_total_reserve(pool.id.0, amount_0_in, amount_0_out);
     update_total_reserve(pool.id.1, amount_1_in, amount_1_out);
 }
@@ -304,7 +324,7 @@ fn transfer_assets(
 
 #[storage(read)]
 fn get_protocol_fees() -> (u64, u64) {
-    storage.protocol_fees.read()
+    storage::V1.protocol_fees.read()
 }
 
 fn get_lp_pool_fee(pool_id: PoolId, amount_0: u64, amount_1: u64) -> (u64, u64) {
@@ -344,7 +364,7 @@ impl SRC5 for Contract {
 
 #[storage(read)]
 fn get_hook() -> Option<ContractId> {
-    storage.hook.read()
+    storage::V1.hook.read()
 }
 
 #[storage(read)]
@@ -377,7 +397,7 @@ fn call_hook(
 impl SRC20 for Contract {
     #[storage(read)]
     fn total_assets() -> u64 {
-        storage.total_pools.read()
+        storage::V1.total_pools.read()
     }
 
     #[storage(read)]
@@ -387,7 +407,7 @@ impl SRC20 for Contract {
 
     #[storage(read)]
     fn name(asset: AssetId) -> Option<String> {
-        storage.lp_name.get(asset).read_slice()
+        storage::V1.lp_name.get(asset).read_slice()
     }
 
     #[storage(read)]
@@ -458,7 +478,7 @@ impl DieselAMM for Contract {
             volatile_fee <= get_max_protocol_fee(LP_FEE_VOLATILE) && stable_fee <= get_max_protocol_fee(LP_FEE_STABLE),
             InputError::ProtocolFeesAreTooHigh,
         );
-        storage.protocol_fees.write((volatile_fee, stable_fee));
+        storage::V1.protocol_fees.write((volatile_fee, stable_fee));
     }
 
     #[storage(write)]
@@ -468,7 +488,7 @@ impl DieselAMM for Contract {
         if let Some(id) = contract_id {
             require(is_lp_rewards_hook(id), "Invalid hook contract");
         }
-        storage.hook.write(contract_id);
+        storage::V1.hook.write(contract_id);
     }
 
     #[storage(read)]
@@ -655,7 +675,7 @@ impl DieselAMM for Contract {
 
     #[storage(read)]
     fn get_lp_rewards(user: Identity, pool_id: PoolId) -> u64 {
-        if let Some(hook_contract) = storage.hook.read() {
+        if let Some(hook_contract) = storage::V1.hook.read() {
             abi(LPRewardsHook, hook_contract.into())
                 .get_user_rewards(user, pool_id)
         } else {
@@ -665,7 +685,7 @@ impl DieselAMM for Contract {
 
     #[storage(read)]
     fn get_total_lp_rewards(user: Identity) -> u64 {
-        if let Some(hook_contract) = storage.hook.read() {
+        if let Some(hook_contract) = storage::V1.hook.read() {
             abi(LPRewardsHook, hook_contract.into())
                 .get_total_user_rewards(user)
         } else {
@@ -675,7 +695,7 @@ impl DieselAMM for Contract {
 
     #[storage(read)]
     fn get_user_reward_pools(user: Identity) -> Vec<PoolId> {
-        if let Some(hook_contract) = storage.hook.read() {
+        if let Some(hook_contract) = storage::V1.hook.read() {
             abi(LPRewardsHook, hook_contract.into())
                 .get_user_reward_pools(user)
         } else {
@@ -689,5 +709,5 @@ fn is_lp_rewards_hook(contract_id: ContractId) -> bool {
     // Simply try to call a view function and catch any errors
     let result: u64 = abi(LPRewardsHook, contract_id.into())
         .get_total_user_rewards(Identity::ContractId(ContractId::this()));
-    result > 0
+    result >= 0
 }
